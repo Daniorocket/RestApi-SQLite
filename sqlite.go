@@ -9,49 +9,55 @@ import (
 )
 
 func selectAllData(db *sql.DB) {
-	rows, err := db.Query("SELECT * FROM todos")
+	rows, err := db.Query("SELECT * FROM userinfo")
 	checkErr(err)
-	var id int
+	var uid int
 	var username string
-	var department string
+	var departname string
 	var created time.Time
 	fmt.Println("\nSelect all rows")
 	for rows.Next() {
-		err = rows.Scan(&id, &username, &department, &created)
+		err = rows.Scan(&uid, &username, &departname, &created)
 		checkErr(err)
-		fmt.Println("\n", id)
+		fmt.Println("\n", uid)
 		fmt.Println(username)
-		fmt.Println(department)
+		fmt.Println(departname)
 		fmt.Println(created)
-
 	}
 	rows.Close() //good habit to close
 	fmt.Println("Done!")
 }
-func dbCountOfTodos() int {
-	rows, err := Db.Query("SELECT COUNT(*) as count FROM  todos")
+func dbCountOfUserinfo() int64 {
+	rows, err := Db.Query("SELECT COUNT(*) as count FROM  userinfo")
 	checkErr(err)
 	return checkCount(rows)
 }
 
-func checkCount(rows *sql.Rows) (count int) {
+func checkCount(rows *sql.Rows) (count int64) {
 	for rows.Next() {
 		err := rows.Scan(&count)
 		checkErr(err)
 	}
 	return count
 }
-func insertRow(db *sql.DB, id int64, username string, department bool) {
+func insertRow(db *sql.DB, uid int64, username string, departname string) Userinfo {
 	// insert
-	stmt, err := db.Prepare("INSERT INTO todos(id, name, completed,due) values(?,?,?,?)")
+	var user Userinfo
+	stmt, err := db.Prepare("INSERT INTO userinfo(username, departname,created) values(?,?,?)")
 	checkErr(err)
 
-	res, err := stmt.Exec(id, username, department, time.Now())
+	res, err := stmt.Exec(username, departname, time.Now())
 	res.LastInsertId()
 	checkErr(err)
+	user.Uid = int(uid)
+	user.Username = username
+	user.Departname = departname
+	user.Created = time.Now()
+	userinfoTable = append(userinfoTable, user)
+	return user
 }
 func updateName(db *sql.DB, id int64, name string) {
-	stmt, err := db.Prepare("update todos set name=? where id=?")
+	stmt, err := db.Prepare("update userinfo set username=? where uid=?")
 	checkErr(err)
 
 	res, err := stmt.Exec(name, id)
@@ -64,7 +70,7 @@ func updateName(db *sql.DB, id int64, name string) {
 }
 func deleteRow(db *sql.DB, id int64) {
 	// delete
-	stmt, err := db.Prepare("delete from todos where id=?")
+	stmt, err := db.Prepare("delete from userinfo where uid=?")
 	checkErr(err)
 
 	res, err := stmt.Exec(id)

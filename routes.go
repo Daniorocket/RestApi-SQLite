@@ -22,7 +22,7 @@ var routes = Routes{
 		"TodoIndex",
 		"GET",
 		"/todos",
-		TodoIndex,
+		UserInfoIndex,
 	},
 	Route{
 		"TodoShow",

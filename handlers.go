@@ -14,11 +14,10 @@ func Index(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "Welcome!")
 }
 
-func TodoIndex(w http.ResponseWriter, r *http.Request) {
+func UserInfoIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json;charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
-	fmt.Println(todos)
-	if err := json.NewEncoder(w).Encode(todos); err != nil {
+	if err := json.NewEncoder(w).Encode(userinfoTable); err != nil {
 		panic(err)
 	}
 }
@@ -30,7 +29,7 @@ func TodoShow(w http.ResponseWriter, r *http.Request) {
 }
 
 func TodoCreate(w http.ResponseWriter, r *http.Request) { //Post
-	var todo Todo
+	var userinfo Userinfo
 	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
 	if err != nil {
 		panic(err)
@@ -38,20 +37,18 @@ func TodoCreate(w http.ResponseWriter, r *http.Request) { //Post
 	if err := r.Body.Close(); err != nil {
 		panic(err)
 	}
-	if err := json.Unmarshal(body, &todo); err != nil {
+	if err := json.Unmarshal(body, &userinfo); err != nil {
 		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		w.WriteHeader(422) // unprocessable entity
 		if err := json.NewEncoder(w).Encode(err); err != nil {
 			panic(err)
 		}
 	}
-	fmt.Println("aaa", todo)
-
-	t := RepoCreateTodo(todo)
-	insertRow(Db, int64(todo.Id), todo.Name, todo.Completed)
+	fmt.Println("POST:", userinfo)
+	userinfo = insertRow(Db, dbCountOfUserinfo()+1, userinfo.Username, userinfo.Departname)
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(t); err != nil {
+	if err := json.NewEncoder(w).Encode(userinfo); err != nil {
 		panic(err)
 	}
 }

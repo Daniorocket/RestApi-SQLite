@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 )
@@ -13,15 +12,13 @@ var err error
 
 func main() {
 	Db, err = createDb()
-	stmt, err := Db.Prepare("CREATE TABLE IF NOT EXISTS todos (id INTEGER PRIMARY KEY,name varchar(64) NULL,completed bool false,due date NULL)")
+	stmt, err := Db.Prepare("CREATE TABLE IF NOT EXISTS userinfo (uid INTEGER PRIMARY KEY AUTOINCREMENT,username varchar(64) NULL,departname varchar(64) NULL,created date NULL)")
 	stmt.Exec()
 	checkErr(err)
-	insertRow(Db, 1, "Daniel", false)
-	insertRow(Db, 2, "Janusz", false)
+	insertRow(Db, 1, "Daniel", "ZUT")
+	insertRow(Db, 2, "Janusz", "PWR")
 	selectAllData(Db)
-	deleteRow(Db, 1)
-	selectAllData(Db)
-	fmt.Println("Liczba rekordow:", dbCountOfTodos())
+	//	fmt.Println("Liczba rekordow:", dbCountOfUserinfo())
 	router := NewRouter()
 
 	log.Fatal(http.ListenAndServe(":8081", router))
