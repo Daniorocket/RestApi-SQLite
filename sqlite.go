@@ -103,7 +103,7 @@ func updateDepartname(db *sql.DB, id int64, departname string) {
 
 	fmt.Println("Updated: ", affect)
 }
-func deleteRow(db *sql.DB, id int64) {
+func deleteRow(db *sql.DB, id int64) int64 {
 	// delete
 	stmt, err := db.Prepare("delete from userinfo where uid=?")
 	checkErr(err)
@@ -115,6 +115,7 @@ func deleteRow(db *sql.DB, id int64) {
 	checkErr(err)
 
 	fmt.Println("Deleted: ", affect)
+	return affect
 }
 func createDb() (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", "./todos.db")

@@ -42,4 +42,10 @@ var routes = Routes{
 		"/todos/edit/{uid}",
 		EditUser,
 	},
+	Route{
+		"DeleteUser",
+		"DELETE",
+		"/todos/delete/{uid}",
+		DeleteUser,
+	},
 }

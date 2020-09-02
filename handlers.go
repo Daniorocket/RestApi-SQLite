@@ -102,3 +102,37 @@ func EditUser(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 }
+func DeleteUser(w http.ResponseWriter, r *http.Request) {
+	// type Confirmation struct {
+	// 	Confirmed string `json:"confirmed"`
+	// }
+	// var confirmation Confirmation
+	vars := mux.Vars(r)
+	uid := vars["uid"]
+	UidInt, err := strconv.Atoi(uid)
+	if err != nil {
+		panic(err)
+	}
+	deleteRow(Db, int64(UidInt))
+	if sum := deleteElementFromTableById(UidInt); sum == 0 {
+		if err := json.NewEncoder(w).Encode("Deleted!"); err != nil {
+			panic(err)
+		}
+	} else {
+		if err := json.NewEncoder(w).Encode("Not deleted"); err != nil {
+			panic(err)
+		}
+	}
+	// body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// if err := r.Body.Close(); err != nil {
+	// 	panic(err)
+	// }
+	// if err := json.Unmarshal(body, &confirmation); err != nil {
+	// 	w.Header().Set("Content-Type", "application/json;charset=UTF-8")
+	// 	w.WriteHeader(http.StatusOK)
+	// 	fmt.Println("Aha", confirmation.Confirmed)
+	// }
+}

@@ -21,3 +21,12 @@ func searchUserinfoById(id int) int {
 	}
 	return -1
 }
+func deleteElementFromTableById(id int) int {
+	for i, userinfo := range userinfoTable {
+		if userinfo.Uid == id {
+			userinfoTable = append(userinfoTable[:i], userinfoTable[i+1:]...)
+			return 0
+		}
+	}
+	return -1
+}
