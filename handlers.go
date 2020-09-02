@@ -15,22 +15,21 @@ func Index(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "Welcome!")
 }
 
-func UserInfoIndex(w http.ResponseWriter, r *http.Request) {
+func UserinfoIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json;charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
-	fmt.Println(userinfoTable)
 	if err := json.NewEncoder(w).Encode(userinfoTable); err != nil {
 		panic(err)
 	}
 }
 
-func TodoShow(w http.ResponseWriter, r *http.Request) {
+func UserinfoShow(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	todoId := vars["todoId"]
 	fmt.Fprintln(w, "Todo show:", todoId)
 }
 
-func TodoCreate(w http.ResponseWriter, r *http.Request) { //Post
+func UserinfoCreate(w http.ResponseWriter, r *http.Request) { //Post
 	var userinfo Userinfo
 	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
 	if err != nil {
@@ -53,7 +52,7 @@ func TodoCreate(w http.ResponseWriter, r *http.Request) { //Post
 		panic(err)
 	}
 }
-func EditUser(w http.ResponseWriter, r *http.Request) {
+func EditUserinfo(w http.ResponseWriter, r *http.Request) {
 	var userinfo Userinfo
 	var oldUserinfo Userinfo
 	vars := mux.Vars(r)
@@ -64,7 +63,6 @@ func EditUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	oldUserinfo = selectRowById(Db, UidInt)
-	fmt.Println("Old user:", oldUserinfo)
 	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
 	if err != nil {
 		panic(err)
@@ -79,7 +77,6 @@ func EditUser(w http.ResponseWriter, r *http.Request) {
 			panic(err)
 		}
 	}
-	fmt.Println("Edited user data:", userinfo)
 	//If user edited username
 	if userinfo.Username != "" && userinfo.Username != oldUserinfo.Username {
 		updateName(Db, int64(UidInt), userinfo.Username)
@@ -102,7 +99,7 @@ func EditUser(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 }
-func DeleteUser(w http.ResponseWriter, r *http.Request) {
+func DeleteUserinfo(w http.ResponseWriter, r *http.Request) {
 	// type Confirmation struct {
 	// 	Confirmed string `json:"confirmed"`
 	// }

@@ -8,6 +8,30 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+func init() {
+	Db, err = createDb()
+	stmt, err := Db.Prepare("CREATE TABLE IF NOT EXISTS userinfo (uid INTEGER PRIMARY KEY AUTOINCREMENT,username varchar(64) NULL,departname varchar(64) NULL,created date NULL)")
+	stmt.Exec()
+	checkErr(err)
+	rows, err := Db.Query("SELECT * FROM userinfo")
+	var userinfo Userinfo
+	checkErr(err)
+	var uid int
+	var username string
+	var departname string
+	var created time.Time
+	for rows.Next() {
+		err = rows.Scan(&uid, &username, &departname, &created)
+		checkErr(err)
+		userinfo.Uid = uid
+		userinfo.Username = username
+		userinfo.Departname = departname
+		userinfo.Created = created
+		userinfoTable = append(userinfoTable, userinfo)
+	}
+	rows.Close() //good habit to close
+	fmt.Println("Init db done!")
+}
 func selectAllData(db *sql.DB) {
 	rows, err := db.Query("SELECT * FROM userinfo")
 	checkErr(err)
@@ -63,7 +87,6 @@ func checkCount(rows *sql.Rows) (count int64) {
 	return count
 }
 func insertRow(db *sql.DB, uid int64, username string, departname string) Userinfo {
-	// insert
 	var user Userinfo
 	stmt, err := db.Prepare("INSERT INTO userinfo(username, departname,created) values(?,?,?)")
 	checkErr(err)
@@ -88,7 +111,7 @@ func updateName(db *sql.DB, id int64, name string) {
 	affect, err := res.RowsAffected()
 	checkErr(err)
 
-	fmt.Println("Updated: ", affect)
+	fmt.Println("Updated: ", affect, " record.")
 
 }
 func updateDepartname(db *sql.DB, id int64, departname string) {
@@ -101,7 +124,7 @@ func updateDepartname(db *sql.DB, id int64, departname string) {
 	affect, err := res.RowsAffected()
 	checkErr(err)
 
-	fmt.Println("Updated: ", affect)
+	fmt.Println("Updated: ", affect, " record.")
 }
 func deleteRow(db *sql.DB, id int64) int64 {
 	// delete
@@ -114,7 +137,7 @@ func deleteRow(db *sql.DB, id int64) int64 {
 	affect, err := res.RowsAffected()
 	checkErr(err)
 
-	fmt.Println("Deleted: ", affect)
+	fmt.Println("Deleted: ", affect, " record.")
 	return affect
 }
 func createDb() (*sql.DB, error) {
@@ -122,17 +145,6 @@ func createDb() (*sql.DB, error) {
 	checkErr(err)
 	return db, err
 }
-
-// 	insertRow(db, "Daniel", "ZUT")
-// 	insertRow(db, "Janusz", "PWR")
-// 	selectAllData(db)
-// 	updateName(db, 1, "Andrzej")
-// 	selectAllData(db)
-// 	deleteRow(db, 2)
-// 	selectAllData(db)
-// 	db.Close()
-// }
-
 func checkErr(err error) {
 	if err != nil {
 		panic(err)
