@@ -12,3 +12,12 @@ type Userinfo struct {
 type Userinfos []Userinfo
 
 var userinfoTable Userinfos
+
+func searchUserinfoById(id int) int {
+	for i, userinfo := range userinfoTable {
+		if userinfo.Uid == id {
+			return i
+		}
+	}
+	return -1
+}

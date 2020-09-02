@@ -27,6 +27,28 @@ func selectAllData(db *sql.DB) {
 	rows.Close() //good habit to close
 	fmt.Println("Done!")
 }
+func selectRowById(db *sql.DB, id int) Userinfo {
+	var userinfo Userinfo
+	rows, err := db.Query("select * from userinfo where uid = ?", id)
+	if err != nil {
+		checkErr(err)
+	}
+	var uid int
+	var username string
+	var departname string
+	var created time.Time
+	for rows.Next() {
+		err := rows.Scan(&uid, &username, &departname, &created)
+		if err != nil {
+			panic(err)
+		}
+		userinfo.Uid = uid
+		userinfo.Username = username
+		userinfo.Departname = departname
+		userinfo.Created = created
+	}
+	return userinfo
+}
 func dbCountOfUserinfo() int64 {
 	rows, err := Db.Query("SELECT COUNT(*) as count FROM  userinfo")
 	checkErr(err)
@@ -61,6 +83,19 @@ func updateName(db *sql.DB, id int64, name string) {
 	checkErr(err)
 
 	res, err := stmt.Exec(name, id)
+	checkErr(err)
+
+	affect, err := res.RowsAffected()
+	checkErr(err)
+
+	fmt.Println("Updated: ", affect)
+
+}
+func updateDepartname(db *sql.DB, id int64, departname string) {
+	stmt, err := db.Prepare("update userinfo set departname=? where uid=?")
+	checkErr(err)
+
+	res, err := stmt.Exec(departname, id)
 	checkErr(err)
 
 	affect, err := res.RowsAffected()

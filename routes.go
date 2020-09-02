@@ -36,4 +36,10 @@ var routes = Routes{
 		"/todos",
 		TodoCreate,
 	},
+	Route{
+		"EditUser",
+		"POST",
+		"/todos/edit/{uid}",
+		EditUser,
+	},
 }

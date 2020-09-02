@@ -15,10 +15,10 @@ func main() {
 	stmt, err := Db.Prepare("CREATE TABLE IF NOT EXISTS userinfo (uid INTEGER PRIMARY KEY AUTOINCREMENT,username varchar(64) NULL,departname varchar(64) NULL,created date NULL)")
 	stmt.Exec()
 	checkErr(err)
+	//Testing
 	insertRow(Db, 1, "Daniel", "ZUT")
 	insertRow(Db, 2, "Janusz", "PWR")
 	selectAllData(Db)
-	//	fmt.Println("Liczba rekordow:", dbCountOfUserinfo())
 	router := NewRouter()
 
 	log.Fatal(http.ListenAndServe(":8081", router))
