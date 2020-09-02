@@ -38,7 +38,7 @@ var routes = Routes{
 	},
 	Route{
 		"EditUser",
-		"POST",
+		"PUT",
 		"/todos/edit/{uid}",
 		EditUser,
 	},
