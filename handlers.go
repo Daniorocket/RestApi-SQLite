@@ -24,22 +24,19 @@ func (d *Handler) Index(w http.ResponseWriter, r *http.Request) {
 }
 
 func (d *Handler) UserinfoIndex(w http.ResponseWriter, r *http.Request) {
-	// w.Header().Set("Content-Type", "application/json;charset=UTF-8")
-	// w.WriteHeader(http.StatusOK)
-	// if err := json.NewEncoder(w).Encode(userinfoTable); err != nil {
-	// 	panic(err)
-	// }
-
-	// users, err := selectAllData(Db)
 
 	users, err := selectAllData(d.db)
 	if err != nil {
 		log.Println("failed to read rows from  table ", err)
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	bytes, err := json.Marshal(&users)
 	if err != nil {
 		log.Println("failed to prepare json describe list of users ", err)
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -90,6 +87,7 @@ func (d *Handler) UserinfoCreate(w http.ResponseWriter, r *http.Request) { //Pos
 		log.Println("failed to encode userinfo ", err)
 		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 }
 func (d *Handler) EditUserinfo(w http.ResponseWriter, r *http.Request) {
@@ -99,72 +97,80 @@ func (d *Handler) EditUserinfo(w http.ResponseWriter, r *http.Request) {
 	uid := vars["uid"]
 	UidInt, err := strconv.Atoi(uid)
 	if err != nil {
-		panic(err)
+		log.Println("Can't convert this ID to integer.", err)
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	oldUserinfo, err = selectRowById(d.db, UidInt)
 	if err != nil {
-		panic(err)
+		log.Println("unable to select row with this ID ", err)
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
 	if err != nil {
-		panic(err)
+		log.Println("failed to read json body from edituserinfo ", err)
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	if err := r.Body.Close(); err != nil {
-		panic(err)
+		log.Println("failed to close body from edituserinfo ", err)
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	if err := json.Unmarshal(body, &userinfo); err != nil {
 		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		w.WriteHeader(422) // unprocessable entity
 		if err := json.NewEncoder(w).Encode(err); err != nil {
-			panic(err)
+			log.Println("failed to encode userinfo ", err)
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
 	}
 	//If user edited username
 	if userinfo.Username != "" && userinfo.Username != oldUserinfo.Username {
-		updateName(d.db, int64(UidInt), userinfo.Username)
-		// if userTableIndex, err := searchUserinfoById(UidInt); err != nil {
-		// 	//TODO
-		// 	//panic(err)
-		// } else {
-		// 	userinfoTable[userTableIndex].Username = userinfo.Username
-		// }
+		err = updateName(d.db, int64(UidInt), userinfo.Username)
+		if err != nil {
+			log.Println("failed to update name of user ", err)
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	}
 	//If user edited departname
 	if userinfo.Departname != "" && userinfo.Departname != oldUserinfo.Departname {
-		updateDepartname(d.db, int64(UidInt), userinfo.Departname)
-		// if userTableIndex, err := searchUserinfoById(UidInt); err != nil {
-		// 	//TODO
-		// 	//panic(err)
-		// } else {
-		// 	userinfoTable[userTableIndex].Departname = userinfo.Departname
-		// }
+		err = updateDepartname(d.db, int64(UidInt), userinfo.Departname)
+		if err != nil {
+			log.Println("failed to update departname of user ", err)
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	}
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(userinfo); err != nil {
-		panic(err)
-	}
 }
 func (d *Handler) DeleteUserinfo(w http.ResponseWriter, r *http.Request) {
-	// type Confirmation struct {
-	// 	Confirmed string `json:"confirmed"`
-	// }
-	// var confirmation Confirmation
 	vars := mux.Vars(r)
 	uid := vars["uid"]
 	UidInt, err := strconv.Atoi(uid)
 	if err != nil {
-		panic(err)
+		log.Println("failed to convers userId to int", err)
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
-	deleteRow(d.db, int64(UidInt))
-	// if err := deleteElementFromTableById(UidInt); err == nil {
-	// 	if err := json.NewEncoder(w).Encode("Deleted!"); err != nil {
-	// 		panic(err)
-	// 	}
-	// } else {
-	// 	if err := json.NewEncoder(w).Encode("Not deleted"); err != nil {
-	// 		panic(err)
-	// 	}
-	// }
+	err = deleteRow(d.db, int64(UidInt))
+	if err != nil {
+		log.Println("failed to delete row on database", err)
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 }
