@@ -1,14 +1,19 @@
 package main
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/gorilla/mux"
 )
 
-func NewRouter() *mux.Router {
+func NewRouter(db *sql.DB) *mux.Router {
+
+	handler := Handler{db: db}
+	initRoutes(handler)
 	router := mux.NewRouter().StrictSlash(true)
-	for _, route := range routes {
+
+	for _, route := range initRoutes(handler) {
 		var handler http.Handler
 		handler = route.HandlerFunc
 		handler = Logger(handler, route.Name)

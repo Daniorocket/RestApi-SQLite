@@ -1,17 +1,30 @@
 package main
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
 )
 
-//Db pointer to db
-var Db *sql.DB
-var err error
-
 func main() {
-	router := NewRouter()
-	log.Fatal(http.ListenAndServe(":8081", router))
-	Db.Close()
+	var err error
+	db, err := createDb()
+	if err != nil {
+		log.Println("failed to open connection")
+		return
+	}
+	defer db.Close()
+	if err != nil {
+		log.Println("failed to close connection")
+		return
+	}
+	if err = initDb(db); err != nil {
+		log.Println("Failed to init db: ", err)
+		return
+	}
+	router := NewRouter(db)
+	if err = http.ListenAndServe(":8081", router); err != nil {
+		log.Println("failed to close server: ", err)
+		return
+	}
+
 }

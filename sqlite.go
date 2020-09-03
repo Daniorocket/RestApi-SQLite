@@ -8,54 +8,37 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func init() {
-	Db, err = createDb()
-	stmt, err := Db.Prepare("CREATE TABLE IF NOT EXISTS userinfo (uid INTEGER PRIMARY KEY AUTOINCREMENT,username varchar(64) NULL,departname varchar(64) NULL,created date NULL)")
+func initDb(db *sql.DB) error {
+	stmt, err := db.Prepare("CREATE TABLE IF NOT EXISTS userinfo (uid INTEGER PRIMARY KEY AUTOINCREMENT,username varchar(64) NULL,departname varchar(64) NULL,created date NULL)")
 	stmt.Exec()
-	checkErr(err)
-	rows, err := Db.Query("SELECT * FROM userinfo")
-	var userinfo Userinfo
-	checkErr(err)
-	var uid int
-	var username string
-	var departname string
-	var created time.Time
-	for rows.Next() {
-		err = rows.Scan(&uid, &username, &departname, &created)
-		checkErr(err)
-		userinfo.Uid = uid
-		userinfo.Username = username
-		userinfo.Departname = departname
-		userinfo.Created = created
-		userinfoTable = append(userinfoTable, userinfo)
-	}
-	rows.Close() //good habit to close
 	fmt.Println("Init db done!")
+	return err
 }
-func selectAllData(db *sql.DB) {
+
+func selectAllData(db *sql.DB) ([]Userinfo, error) {
+	var usersinfo []Userinfo
 	rows, err := db.Query("SELECT * FROM userinfo")
-	checkErr(err)
-	var uid int
-	var username string
-	var departname string
-	var created time.Time
-	fmt.Println("\nSelect all rows")
-	for rows.Next() {
-		err = rows.Scan(&uid, &username, &departname, &created)
-		checkErr(err)
-		fmt.Println("\n", uid)
-		fmt.Println(username)
-		fmt.Println(departname)
-		fmt.Println(created)
+	if err != nil {
+		return nil, err
 	}
-	rows.Close() //good habit to close
-	fmt.Println("Done!")
+	defer rows.Close() //good habit to close
+	for rows.Next() {
+		var user Userinfo
+		err = rows.Scan(
+			&user.Uid, &user.Username, &user.Departname, &user.Created)
+		if err != nil {
+			return nil, err
+		}
+		usersinfo = append(usersinfo, user)
+	}
+	return usersinfo, nil
 }
-func selectRowById(db *sql.DB, id int) Userinfo {
+
+func selectRowById(db *sql.DB, id int) (Userinfo, error) {
 	var userinfo Userinfo
 	rows, err := db.Query("select * from userinfo where uid = ?", id)
 	if err != nil {
-		checkErr(err)
+		return userinfo, err
 	}
 	var uid int
 	var username string
@@ -64,89 +47,114 @@ func selectRowById(db *sql.DB, id int) Userinfo {
 	for rows.Next() {
 		err := rows.Scan(&uid, &username, &departname, &created)
 		if err != nil {
-			panic(err)
+			return userinfo, err
 		}
 		userinfo.Uid = uid
 		userinfo.Username = username
 		userinfo.Departname = departname
 		userinfo.Created = created
 	}
-	return userinfo
+	return userinfo, nil
 }
-func dbCountOfUserinfo() int64 {
-	rows, err := Db.Query("SELECT COUNT(*) as count FROM  userinfo")
-	checkErr(err)
+func dbCountOfUserinfo(db *sql.DB) (int64, error) {
+	rows, err := db.Query("SELECT COUNT(*) as count FROM  userinfo")
+	if err != nil {
+		return 0, err
+	}
 	return checkCount(rows)
 }
 
-func checkCount(rows *sql.Rows) (count int64) {
+func checkCount(rows *sql.Rows) (int64, error) {
+	var count int64
 	for rows.Next() {
 		err := rows.Scan(&count)
-		checkErr(err)
+		if err != nil {
+			return 0, err
+		}
 	}
-	return count
+	return count, nil
 }
-func insertRow(db *sql.DB, uid int64, username string, departname string) Userinfo {
+func insertRow(db *sql.DB, uid int64, username string, departname string) (Userinfo, error) {
 	var user Userinfo
 	stmt, err := db.Prepare("INSERT INTO userinfo(username, departname,created) values(?,?,?)")
-	checkErr(err)
+	if err != nil {
+		return user, err
+	}
 
 	res, err := stmt.Exec(username, departname, time.Now())
+	if err != nil {
+		return user, err
+	}
 	res.LastInsertId()
-	checkErr(err)
 	user.Uid = int(uid)
 	user.Username = username
 	user.Departname = departname
 	user.Created = time.Now()
-	userinfoTable = append(userinfoTable, user)
-	return user
+	return user, nil
 }
-func updateName(db *sql.DB, id int64, name string) {
+func updateName(db *sql.DB, id int64, name string) error {
 	stmt, err := db.Prepare("update userinfo set username=? where uid=?")
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 
 	res, err := stmt.Exec(name, id)
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 
 	affect, err := res.RowsAffected()
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 
 	fmt.Println("Updated: ", affect, " record.")
-
+	return nil
 }
-func updateDepartname(db *sql.DB, id int64, departname string) {
+func updateDepartname(db *sql.DB, id int64, departname string) error {
 	stmt, err := db.Prepare("update userinfo set departname=? where uid=?")
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 
 	res, err := stmt.Exec(departname, id)
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 
 	affect, err := res.RowsAffected()
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 
 	fmt.Println("Updated: ", affect, " record.")
+	return nil
 }
-func deleteRow(db *sql.DB, id int64) int64 {
+func deleteRow(db *sql.DB, id int64) error {
 	// delete
 	stmt, err := db.Prepare("delete from userinfo where uid=?")
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 
 	res, err := stmt.Exec(id)
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 
 	affect, err := res.RowsAffected()
-	checkErr(err)
+	if err != nil {
+		return err
+	}
 
 	fmt.Println("Deleted: ", affect, " record.")
-	return affect
+	return nil
 }
+
 func createDb() (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", "./todos.db")
-	checkErr(err)
-	return db, err
-}
-func checkErr(err error) {
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+	return db, err
 }

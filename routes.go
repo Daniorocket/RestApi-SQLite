@@ -11,41 +11,43 @@ type Route struct {
 
 type Routes []Route
 
-var routes = Routes{
-	Route{
-		"Index",
-		"GET",
-		"/",
-		Index,
-	},
-	Route{
-		"UserinfoIndex",
-		"GET",
-		"/todos",
-		UserinfoIndex,
-	},
-	Route{
-		"UserinfoShow",
-		"GET",
-		"/todos/{todoId}",
-		UserinfoShow,
-	},
-	Route{
-		"UserinfoCreate",
-		"POST",
-		"/todos",
-		UserinfoCreate,
-	},
-	Route{
-		"EditUserinfo",
-		"PUT",
-		"/todos/edit/{uid}",
-		EditUserinfo,
-	},
-	Route{
-		"DeleteUserinfo",
-		"DELETE",
-		"/todos/delete/{uid}",
-		DeleteUserinfo,
-	},
+func initRoutes(handler Handler) Routes {
+	return Routes{
+		Route{
+			"Index",
+			"GET",
+			"/",
+			handler.Index,
+		},
+		Route{
+			"UserinfoIndex",
+			"GET",
+			"/todos",
+			handler.UserinfoIndex,
+		},
+		Route{
+			"UserinfoShow",
+			"GET",
+			"/todos/{todoId}",
+			handler.UserinfoShow,
+		},
+		Route{
+			"UserinfoCreate",
+			"POST",
+			"/todos",
+			handler.UserinfoCreate,
+		},
+		Route{
+			"EditUserinfo",
+			"PUT",
+			"/todos/edit/{uid}",
+			handler.EditUserinfo,
+		},
+		Route{
+			"DeleteUserinfo",
+			"DELETE",
+			"/todos/delete/{uid}",
+			handler.DeleteUserinfo,
+		},
+	}
 }

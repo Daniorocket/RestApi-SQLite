@@ -1,6 +1,8 @@
 package main
 
-import "time"
+import (
+	"time"
+)
 
 type Userinfo struct {
 	Uid        int       `json:"uid"`
@@ -9,24 +11,24 @@ type Userinfo struct {
 	Created    time.Time `json:"created"`
 }
 
-type Userinfos []Userinfo
+// type Userinfos []Userinfo
 
-var userinfoTable Userinfos
+// var userinfoTable Userinfos
 
-func searchUserinfoById(id int) int {
-	for i, userinfo := range userinfoTable {
-		if userinfo.Uid == id {
-			return i
-		}
-	}
-	return -1
-}
-func deleteElementFromTableById(id int) int {
-	for i, userinfo := range userinfoTable {
-		if userinfo.Uid == id {
-			userinfoTable = append(userinfoTable[:i], userinfoTable[i+1:]...)
-			return 0
-		}
-	}
-	return -1
-}
+// func searchUserinfoById(id int) (int, error) {
+// 	for i, userinfo := range userinfoTable {
+// 		if userinfo.Uid == id {
+// 			return i, nil
+// 		}
+// 	}
+// 	return 0, errors.New("User not found in database.")
+// }
+// func deleteElementFromTableById(id int) error {
+// 	for i, userinfo := range userinfoTable {
+// 		if userinfo.Uid == id {
+// 			userinfoTable = append(userinfoTable[:i], userinfoTable[i+1:]...)
+// 			return errors.New("Cant delete user(not exists)")
+// 		}
+// 	}
+// 	return nil
+// }
