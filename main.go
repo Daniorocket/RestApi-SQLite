@@ -3,28 +3,26 @@ package main
 import (
 	"log"
 	"net/http"
+
+	"github.com/Daniorocket/RestApi-SQLite/routing"
+	"github.com/Daniorocket/RestApi-SQLite/sqldb"
 )
 
 func main() {
 	var err error
-	db, err := createDb()
+	db, err := sqldb.CreateDb()
 	if err != nil {
-		log.Println("failed to open connection")
+		log.Println("Failed to open connection:", err)
 		return
 	}
 	defer db.Close()
-	if err != nil {
-		log.Println("failed to close connection")
-		return
-	}
-	if err = initDb(db); err != nil {
+	if err = sqldb.InitDb(db); err != nil {
 		log.Println("Failed to init db: ", err)
 		return
 	}
-	router := NewRouter(db)
+	router := routing.NewRouter(db)
 	if err = http.ListenAndServe(":8081", router); err != nil {
-		log.Println("failed to close server: ", err)
+		log.Println("Failed to close server: ", err)
 		return
 	}
-
 }
