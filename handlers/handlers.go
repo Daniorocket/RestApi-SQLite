@@ -101,15 +101,9 @@ func (d *Handler) EditUserinfo(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
-	if err != nil {
-		log.Println("Failed to read json body from edituserinfo: ", err)
+	if err = json.NewDecoder(r.Body).Decode(&userinf); err != nil {
+		log.Println("Failed to decode body request: ", err)
 		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	if err := json.Unmarshal(body, &userinf); err != nil {
-		log.Println("Unprocessable entity: ", err)
-		w.WriteHeader(http.StatusUnprocessableEntity) // unprocessable entity
 		return
 	}
 	if err := json.NewEncoder(w).Encode(err); err != nil {
@@ -118,31 +112,23 @@ func (d *Handler) EditUserinfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//If user edited username
+	//If user edited username update it
 
-	if err := userinfo.CheckUsername(userinf.Username, oldUserinfo.Username); err != nil {
-		log.Println(err)
+	if err := userinfo.CheckUsername(userinf.Username, oldUserinfo.Username); err == nil {
+		oldUserinfo.Username = userinf.Username
+	}
+
+	//If user edited departname update it
+
+	if err := userinfo.CheckDepartname(userinf.Departname, oldUserinfo.Departname); err == nil {
+		oldUserinfo.Departname = userinf.Departname
+	}
+	if err := sqldb.UpdateRowById(d.Db, int64(UidInt), oldUserinfo); err != nil {
+		log.Println("Failed to update row: ", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if err = sqldb.UpdateName(d.Db, int64(UidInt), userinf.Username); err != nil {
-		log.Println("Failed to update name of user: ", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	//If user edited departname
-	if err := userinfo.CheckDepartname(userinf.Departname, oldUserinfo.Departname); err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	err = sqldb.UpdateDepartname(d.Db, int64(UidInt), userinf.Departname)
-	if err != nil {
-		log.Println("Failed to update departname of user: ", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusOK)
 }
 func (d *Handler) DeleteUserinfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
@@ -154,8 +140,7 @@ func (d *Handler) DeleteUserinfo(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	err = sqldb.DeleteRow(d.Db, int64(UidInt))
-	if err != nil {
+	if err = sqldb.DeleteRow(d.Db, int64(UidInt)); err != nil {
 		log.Println("Failed to delete row on database: ", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return

@@ -19,7 +19,7 @@ func InitDb(db *sql.DB) error {
 }
 func SelectAllData(db *sql.DB) ([]userinfo.Userinfo, error) {
 	var usersinfo []userinfo.Userinfo
-	rows, err := db.Query("SELECT * FROM userinfo")
+	rows, err := db.Query("SELECT uid,username,departname,created FROM userinfo")
 	if err != nil {
 		return nil, err
 	}
@@ -37,26 +37,12 @@ func SelectAllData(db *sql.DB) ([]userinfo.Userinfo, error) {
 }
 
 func SelectRowById(db *sql.DB, id int) (userinfo.Userinfo, error) {
-	var userinfo userinfo.Userinfo
-	rows, err := db.Query("select * from userinfo where uid = ?", id)
+	var userinf userinfo.Userinfo
+	err := db.QueryRow("select uid,username,departname,created from userinfo where uid = ?", id).Scan(&userinf.Uid, &userinf.Username, &userinf.Departname, &userinf.Created)
 	if err != nil {
-		return userinfo, err
+		return userinf, err
 	}
-	var uid int
-	var username string
-	var departname string
-	var created time.Time
-	for rows.Next() {
-		err := rows.Scan(&uid, &username, &departname, &created)
-		if err != nil {
-			return userinfo, err
-		}
-		userinfo.Uid = uid
-		userinfo.Username = username
-		userinfo.Departname = departname
-		userinfo.Created = created
-	}
-	return userinfo, nil
+	return userinf, nil
 }
 func DbCountOfUserinfo(db *sql.DB) (int64, error) {
 	var count int64
@@ -97,34 +83,13 @@ func InsertRow(db *sql.DB, uid int64, username string, departname string) (useri
 	return user, nil
 }
 
-func UpdateName(db *sql.DB, id int64, name string) error {
-	stmt, err := db.Prepare("update userinfo set username=? where uid=?")
+func UpdateRowById(db *sql.DB, id int64, userinf userinfo.Userinfo) error {
+	stmt, err := db.Prepare("update userinfo set username=?, departname=? where uid=?")
 	if err != nil {
 		return err
 	}
 
-	res, err := stmt.Exec(name, id)
-	if err != nil {
-		return err
-	}
-
-	affect, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if affect == 0 {
-		return errors.New("Row not found.")
-	}
-	fmt.Println("Updated: ", affect, " record.")
-	return nil
-}
-func UpdateDepartname(db *sql.DB, id int64, departname string) error {
-	stmt, err := db.Prepare("update userinfo set departname=? where uid=?")
-	if err != nil {
-		return err
-	}
-
-	res, err := stmt.Exec(departname, id)
+	res, err := stmt.Exec(userinf.Username, userinf.Departname, userinf.Uid)
 	if err != nil {
 		return err
 	}
