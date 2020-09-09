@@ -9,21 +9,60 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/Daniorocket/RestApi-SQLite/sqldb"
 	"github.com/Daniorocket/RestApi-SQLite/userinfo"
-
+	"github.com/gomodule/redigo/redis"
 	"github.com/gorilla/mux"
+	uuid "github.com/satori/go.uuid"
+
+	"golang.org/x/crypto/bcrypt"
 )
+
+var Cache redis.Conn
 
 type Handler struct {
 	Db *sql.DB
 }
 
+type Credentials struct {
+	Password string `json:"password", db:"password"`
+	Username string `json:"username", db:"username"`
+}
+
 const MaxBufferSize = 1048576
 
 func (d *Handler) Index(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Welcome!")
+	c, err := r.Cookie("session_token")
+	if err != nil {
+		if err == http.ErrNoCookie {
+			// If the cookie is not set, return an unauthorized status
+			log.Println("User unauthorised:", err)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		// For any other type of error, return a bad request status
+		log.Println("Failed to authorize, other error:", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	sessionToken := c.Value
+
+	// We then get the name of the user from our cache, where we set the session token
+	response, err := Cache.Do("GET", sessionToken)
+	if err != nil {
+		// If there is an error fetching from cache, return an internal server error status
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if response == nil {
+		// If the session token is not present in cache, return an unauthorized error
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	// Finally, return the welcome message to the user
+	w.Write([]byte(fmt.Sprintf("Welcome %s!", response)))
 }
 
 func (d *Handler) UserinfoIndex(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +107,7 @@ func (d *Handler) UserinfoCreate(w http.ResponseWriter, r *http.Request) { //Pos
 	}
 	index, err := sqldb.DbCountOfUserinfo(d.Db)
 	index = index + 1
-	userinfo, err = sqldb.InsertRow(d.Db, index, userinfo.Username, userinfo.Departname)
+	userinfo, err = sqldb.InsertRowIntoUserinfo(d.Db, index, userinfo.Username, userinfo.Departname)
 	if err != nil {
 		log.Println("Failed to insert row on db: ", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -95,7 +134,7 @@ func (d *Handler) EditUserinfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	oldUserinfo, err = sqldb.SelectRowById(d.Db, UidInt)
+	oldUserinfo, err = sqldb.SelectRowFromUserinfoById(d.Db, UidInt)
 	if err != nil {
 		log.Println("Unable to select row with this ID: ", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -145,5 +184,92 @@ func (d *Handler) DeleteUserinfo(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+}
+func (d *Handler) Register(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	creds := &Credentials{}
+	err := json.NewDecoder(r.Body).Decode(creds)
+	if err != nil {
+		// If there is something wrong with the request body, return a 400 status
+		log.Println("Failed to decode body", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	// Salt and hash the password using the bcrypt algorithm
+	// The second argument is the cost of hashing, which we arbitrarily set as 8 (this value can be more or less, depending on the computing power you wish to utilize)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(creds.Password), 8)
+	if err != nil {
+		log.Println("Failed to hash password using bcrypt:", err)
+		w.WriteHeader(http.StatusBadRequest)
+	}
+
+	// Next, insert the username, along with the hashed password into the database
+	if err := sqldb.InsertRowIntoUsers(d.Db, creds.Username, string(hashedPassword)); err != nil {
+		log.Println("Failed to insert row into Users:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+func (d *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	creds := &Credentials{}
+	err := json.NewDecoder(r.Body).Decode(creds)
+	if err != nil {
+		// If there is something wrong with the request body, return a 400 status
+		log.Println("Failed to decode body", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	// Get the existing entry present in the database for the given username
+	password, err := sqldb.SelectPasswordFromUserByName(d.Db, creds.Username)
+	if err != nil {
+		// If there is an issue with the database, return a 500 error
+		log.Println("Failed to select row from database: ", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	// We create another instance of `Credentials` to store the credentials we get from the database
+	storedCreds := &Credentials{}
+	// Store the obtained password in `storedCreds`
+	storedCreds.Password = password
+	if err != nil {
+		// If an entry with the username does not exist, send an "Unauthorized"(401) status
+		if err == sql.ErrNoRows {
+			log.Println("Failed to receive entry with username:", err)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		// If the error is of any other type, send a 500 status
+		log.Println("Error of any other type", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// Compare the stored hashed password, with the hashed version of the password that was received
+	if err = bcrypt.CompareHashAndPassword([]byte(storedCreds.Password), []byte(creds.Password)); err != nil {
+		// If the two passwords don't match, return a 401 status
+		log.Println("Failed to authorize user:", err)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	fmt.Println("User logged in!!")
+	//	Create a new random session token
+	sessionToken := uuid.NewV4().String()
+	// Set the token in the cache, along with the user whom it represents
+	// The token has an expiry time of 1200 seconds
+	_, err = Cache.Do("SETEX", sessionToken, "1200", creds.Username)
+	if err != nil {
+		// If there is an error in setting the cache, return an internal server error
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// Finally, we set the client cookie for "session_token" as the session token we just generated
+	// we also set an expiry time of 120 seconds, the same as the cache
+	http.SetCookie(w, &http.Cookie{
+		Name:    "session_token",
+		Value:   sessionToken,
+		Expires: time.Now().Add(1200 * time.Second),
+	})
+	fmt.Println("Token has been sent!")
 }

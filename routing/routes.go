@@ -53,5 +53,17 @@ func initRoutes(handler handlers.Handler) Routes {
 			"/todos/delete/{uid}",
 			handler.DeleteUserinfo,
 		},
+		Route{
+			"Register",
+			"POST",
+			"/todos/register",
+			handler.Register,
+		},
+		Route{
+			"Login",
+			"POST",
+			"/todos/login",
+			handler.Login,
+		},
 	}
 }

@@ -13,9 +13,17 @@ import (
 
 func InitDb(db *sql.DB) error {
 	stmt, err := db.Prepare("CREATE TABLE IF NOT EXISTS userinfo (uid INTEGER PRIMARY KEY AUTOINCREMENT,username varchar(64) NULL,departname varchar(64) NULL,created date NULL)")
+	if err != nil {
+		return err
+	}
+	stmt.Exec()
+	stmt, err = db.Prepare("CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY,password text)")
+	if err != nil {
+		return err
+	}
 	stmt.Exec()
 	fmt.Println("Init db done!")
-	return err
+	return nil
 }
 func SelectAllData(db *sql.DB) ([]userinfo.Userinfo, error) {
 	var usersinfo []userinfo.Userinfo
@@ -36,13 +44,21 @@ func SelectAllData(db *sql.DB) ([]userinfo.Userinfo, error) {
 	return usersinfo, nil
 }
 
-func SelectRowById(db *sql.DB, id int) (userinfo.Userinfo, error) {
+func SelectRowFromUserinfoById(db *sql.DB, id int) (userinfo.Userinfo, error) {
 	var userinf userinfo.Userinfo
 	err := db.QueryRow("select uid,username,departname,created from userinfo where uid = ?", id).Scan(&userinf.Uid, &userinf.Username, &userinf.Departname, &userinf.Created)
 	if err != nil {
 		return userinf, err
 	}
 	return userinf, nil
+}
+func SelectPasswordFromUserByName(db *sql.DB, username string) (string, error) {
+	var password string
+	err := db.QueryRow("select password from users where username = ?", username).Scan(&password)
+	if err != nil {
+		return "", err
+	}
+	return password, nil
 }
 func DbCountOfUserinfo(db *sql.DB) (int64, error) {
 	var count int64
@@ -63,7 +79,7 @@ func CheckCount(rows *sql.Rows) (int64, error) {
 	}
 	return count, nil
 }
-func InsertRow(db *sql.DB, uid int64, username string, departname string) (userinfo.Userinfo, error) {
+func InsertRowIntoUserinfo(db *sql.DB, uid int64, username string, departname string) (userinfo.Userinfo, error) {
 	var user userinfo.Userinfo
 	stmt, err := db.Prepare("INSERT INTO userinfo(username, departname,created) values(?,?,?)")
 	if err != nil {
@@ -82,7 +98,19 @@ func InsertRow(db *sql.DB, uid int64, username string, departname string) (useri
 	user.Created = now
 	return user, nil
 }
-
+func InsertRowIntoUsers(db *sql.DB, username string, password string) error {
+	fmt.Println(username, password)
+	stmt, err := db.Prepare("INSERT INTO users(username, password) values(?,?)")
+	if err != nil {
+		return err
+	}
+	res, err := stmt.Exec(username, password)
+	if err != nil {
+		return err
+	}
+	res.LastInsertId()
+	return nil
+}
 func UpdateRowById(db *sql.DB, id int64, userinf userinfo.Userinfo) error {
 	stmt, err := db.Prepare("update userinfo set username=?, departname=? where uid=?")
 	if err != nil {
