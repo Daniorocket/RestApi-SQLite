@@ -25,7 +25,7 @@ func main() {
 		return
 	}
 	router := routing.NewRouter(db)
-	if err = http.ListenAndServe(":8081", router); err != nil {
+	if err = http.ListenAndServe(":8080", router); err != nil {
 		log.Println("Failed to close server: ", err)
 		return
 	}

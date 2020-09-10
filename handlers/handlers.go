@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -31,21 +32,17 @@ type Credentials struct {
 	Username string `json:"username", db:"username"`
 }
 
-const MaxBufferSize = 1048576
-
-func (d *Handler) Index(w http.ResponseWriter, r *http.Request) {
+func UserLoggedIn(w http.ResponseWriter, r *http.Request) error {
 	c, err := r.Cookie("session_token")
 	if err != nil {
 		if err == http.ErrNoCookie {
 			// If the cookie is not set, return an unauthorized status
-			log.Println("User unauthorised:", err)
 			w.WriteHeader(http.StatusUnauthorized)
-			return
+			return err
 		}
 		// For any other type of error, return a bad request status
-		log.Println("Failed to authorize, other error:", err)
 		w.WriteHeader(http.StatusBadRequest)
-		return
+		return err
 	}
 	sessionToken := c.Value
 
@@ -53,16 +50,30 @@ func (d *Handler) Index(w http.ResponseWriter, r *http.Request) {
 	response, err := Cache.Do("GET", sessionToken)
 	if err != nil {
 		// If there is an error fetching from cache, return an internal server error status
+		log.Println("Error fetching from cache:", err)
 		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 	if response == nil {
 		// If the session token is not present in cache, return an unauthorized error
+		err = errors.New("Session token is not present in cache: ")
 		w.WriteHeader(http.StatusUnauthorized)
-		return
+		return err
 	}
 	// Finally, return the welcome message to the user
-	w.Write([]byte(fmt.Sprintf("Welcome %s!", response)))
+	fmt.Printf("User %s is logged in, operation possible.!\n", response)
+	//w.Write([]byte(fmt.Sprintf("Welcome %s!", response)))
+	return nil
+}
+
+const MaxBufferSize = 1048576
+
+func (d *Handler) Index(w http.ResponseWriter, r *http.Request) {
+	if err := UserLoggedIn(w, r); err != nil {
+		log.Println("Error authentication, user is not logged in:", err)
+		return
+	}
+	fmt.Println("Index works - user is logged in!")
 }
 
 func (d *Handler) UserinfoIndex(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +90,6 @@ func (d *Handler) UserinfoIndex(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
 	w.Write(bytes)
 }
 
@@ -90,6 +100,10 @@ func (d *Handler) UserinfoShow(w http.ResponseWriter, r *http.Request) {
 }
 
 func (d *Handler) UserinfoCreate(w http.ResponseWriter, r *http.Request) { //Post
+	if err := UserLoggedIn(w, r); err != nil {
+		log.Println("Error authentication, user is not logged in:", err)
+		return
+	}
 	defer r.Body.Close()
 	var userinfo userinfo.Userinfo
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
@@ -121,6 +135,10 @@ func (d *Handler) UserinfoCreate(w http.ResponseWriter, r *http.Request) { //Pos
 	w.WriteHeader(http.StatusCreated)
 }
 func (d *Handler) EditUserinfo(w http.ResponseWriter, r *http.Request) {
+	if err := UserLoggedIn(w, r); err != nil {
+		log.Println("Error authentication, user is not logged in:", err)
+		return
+	}
 	defer r.Body.Close()
 	var userinf userinfo.Userinfo
 	var oldUserinfo userinfo.Userinfo
@@ -170,6 +188,10 @@ func (d *Handler) EditUserinfo(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 func (d *Handler) DeleteUserinfo(w http.ResponseWriter, r *http.Request) {
+	if err := UserLoggedIn(w, r); err != nil {
+		log.Println("Error authentication, user is not logged in:", err)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	vars := mux.Vars(r)
 	uid := vars["uid"]
@@ -211,6 +233,7 @@ func (d *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func (d *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(r)
 	defer r.Body.Close()
 	creds := &Credentials{}
 	err := json.NewDecoder(r.Body).Decode(creds)
@@ -252,24 +275,22 @@ func (d *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	fmt.Println("User logged in!!")
+	fmt.Println("User has been logged in.")
 	//	Create a new random session token
 	sessionToken := uuid.NewV4().String()
 	// Set the token in the cache, along with the user whom it represents
-	// The token has an expiry time of 1200 seconds
-	_, err = Cache.Do("SETEX", sessionToken, "1200", creds.Username)
+	// The token has an expiry time of 30 seconds
+	_, err = Cache.Do("SETEX", sessionToken, "30", creds.Username)
 	if err != nil {
 		// If there is an error in setting the cache, return an internal server error
+		log.Println("Error in setting the cache:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	// Finally, we set the client cookie for "session_token" as the session token we just generated
-	// we also set an expiry time of 120 seconds, the same as the cache
-	http.SetCookie(w, &http.Cookie{
-		Name:    "session_token",
-		Value:   sessionToken,
-		Expires: time.Now().Add(1200 * time.Second),
-	})
-	fmt.Println("Token has been sent!")
+	// we also set an expiry time of 3600 seconds, the same as the cache
+	cookie := http.Cookie{Name: "session_token", Value: sessionToken, Expires: time.Now().Add(30 * time.Second), HttpOnly: true, MaxAge: 50000}
+	http.SetCookie(w, &cookie)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
