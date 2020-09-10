@@ -33,7 +33,7 @@ type Credentials struct {
 }
 
 func UserLoggedIn(w http.ResponseWriter, r *http.Request) error {
-	c, err := r.Cookie("session_token")
+	cookie, err := r.Cookie("session_token")
 	if err != nil {
 		if err == http.ErrNoCookie {
 			// If the cookie is not set, return an unauthorized status
@@ -44,7 +44,7 @@ func UserLoggedIn(w http.ResponseWriter, r *http.Request) error {
 		w.WriteHeader(http.StatusBadRequest)
 		return err
 	}
-	sessionToken := c.Value
+	sessionToken := cookie.Value
 
 	// We then get the name of the user from our cache, where we set the session token
 	response, err := Cache.Do("GET", sessionToken)
@@ -68,11 +68,22 @@ func UserLoggedIn(w http.ResponseWriter, r *http.Request) error {
 
 const MaxBufferSize = 1048576
 
+func Authenticate(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// do stuff
+		switch mux.CurrentRoute(r).GetName() {
+		case "Index", "UserinfoIndex", "UserinfoShow", "UserinfoCreate", "EditUserinfo", "DeleteUserinfo":
+			{
+				if err := UserLoggedIn(w, r); err != nil {
+					log.Println("Error authentication, user is not logged in:", err)
+					return
+				}
+			}
+		}
+		h.ServeHTTP(w, r)
+	})
+}
 func (d *Handler) Index(w http.ResponseWriter, r *http.Request) {
-	if err := UserLoggedIn(w, r); err != nil {
-		log.Println("Error authentication, user is not logged in:", err)
-		return
-	}
 	fmt.Println("Index works - user is logged in!")
 }
 
@@ -100,10 +111,6 @@ func (d *Handler) UserinfoShow(w http.ResponseWriter, r *http.Request) {
 }
 
 func (d *Handler) UserinfoCreate(w http.ResponseWriter, r *http.Request) { //Post
-	if err := UserLoggedIn(w, r); err != nil {
-		log.Println("Error authentication, user is not logged in:", err)
-		return
-	}
 	defer r.Body.Close()
 	var userinfo userinfo.Userinfo
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
@@ -135,10 +142,6 @@ func (d *Handler) UserinfoCreate(w http.ResponseWriter, r *http.Request) { //Pos
 	w.WriteHeader(http.StatusCreated)
 }
 func (d *Handler) EditUserinfo(w http.ResponseWriter, r *http.Request) {
-	if err := UserLoggedIn(w, r); err != nil {
-		log.Println("Error authentication, user is not logged in:", err)
-		return
-	}
 	defer r.Body.Close()
 	var userinf userinfo.Userinfo
 	var oldUserinfo userinfo.Userinfo
@@ -188,10 +191,6 @@ func (d *Handler) EditUserinfo(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 func (d *Handler) DeleteUserinfo(w http.ResponseWriter, r *http.Request) {
-	if err := UserLoggedIn(w, r); err != nil {
-		log.Println("Error authentication, user is not logged in:", err)
-		return
-	}
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	vars := mux.Vars(r)
 	uid := vars["uid"]
@@ -275,12 +274,12 @@ func (d *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	fmt.Println("User has been logged in.")
+	fmt.Println("User has been logged in")
 	//	Create a new random session token
 	sessionToken := uuid.NewV4().String()
 	// Set the token in the cache, along with the user whom it represents
 	// The token has an expiry time of 30 seconds
-	_, err = Cache.Do("SETEX", sessionToken, "30", creds.Username)
+	_, err = Cache.Do("SETEX", sessionToken, "120", creds.Username)
 	if err != nil {
 		// If there is an error in setting the cache, return an internal server error
 		log.Println("Error in setting the cache:", err)
@@ -290,7 +289,13 @@ func (d *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// Finally, we set the client cookie for "session_token" as the session token we just generated
 	// we also set an expiry time of 3600 seconds, the same as the cache
-	cookie := http.Cookie{Name: "session_token", Value: sessionToken, Expires: time.Now().Add(30 * time.Second), HttpOnly: true, MaxAge: 50000}
-	http.SetCookie(w, &cookie)
+	cookie := &http.Cookie{
+		Name:    "session_token",
+		Value:   sessionToken,
+		Expires: time.Now().Add(2 * time.Minute),
+		MaxAge:  50000,
+		Path:    "/",
+		Secure:  false}
+	http.SetCookie(w, cookie)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
